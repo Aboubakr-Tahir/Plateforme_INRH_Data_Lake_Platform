@@ -1,0 +1,46 @@
+# Sujet et notes personnelles (demandé par l'utilisateur)
+Sujet_Master_Chaimae_Anbi.docx
+*.docx
+plan_global.md
+bruillon.md
+
+# Environnements virtuels
+.venv/
+venv/
+ENV/
+env/
+
+# Python / Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Base de données & Données locales
+*.sqlite3
+*.db
+generator/mock_data/*.csv
+generator/mock_data/*.parquet
+
+# Fichiers d'environnement et secrets
+.env
+.env.local
+
+# Fichiers de log
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# Django static & media
+staticfiles/
+media/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp

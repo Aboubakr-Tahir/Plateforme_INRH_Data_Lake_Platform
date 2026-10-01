@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}INRH Data Lake Platform{% endblock %}</title>
+    <!-- Tailwind CSS pour un rendu épuré et moderne sans configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
+
+    <!-- Barre de Navigation Principale -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🌊</span>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">INRH Data Lake Platform</h1>
+                    <p class="text-xs text-indigo-200">Gouvernance & Détection d'Anomalies</p>
+                </div>
+            </div>
+
+            <!-- Liens vers les 2 Dashboards -->
+            <nav class="flex space-x-2">
+                <a href="{% url 'quality_dashboard:home' %}" 
+                   class="px-4 py-2 rounded-lg text-sm font-semibold transition {% if request.resolver_match.app_name == 'quality_dashboard' %}bg-indigo-700 text-white{% else %}text-indigo-200 hover:bg-indigo-800 hover:text-white{% endif %}">
+                   <i class="fa-solid fa-shield-halved mr-1"></i> Dashboard Qualité (Principal)
+                </a>
+                <a href="{% url 'business_dashboard:home' %}" 
+                   class="px-4 py-2 rounded-lg text-sm font-semibold transition {% if request.resolver_match.app_name == 'business_dashboard' %}bg-indigo-700 text-white{% else %}text-indigo-200 hover:bg-indigo-800 hover:text-white{% endif %}">
+                   <i class="fa-solid fa-chart-pie mr-1"></i> Dashboard Métier (Gold)
+                </a>
+                <a href="/admin/" target="_blank" class="px-3 py-2 rounded-lg text-sm font-semibold text-indigo-300 hover:bg-indigo-800 hover:text-white transition">
+                   <i class="fa-solid fa-gear"></i> Admin
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contenu Principal -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Pied de page -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        <p>Plateforme de Recherche Halieutique - INRH Data Lake Platform &bull; Projet de Master Big Data & Cloud Computing</p>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Détails du Lot {{ batch.batch_id }} - INRH{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Retour & Titre -->
+    <div>
+        <a href="{% url 'quality_dashboard:home' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Retour au tableau de bord
+        </a>
+        <div class="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900">Lot : {{ batch.batch_id }}</h2>
+                <p class="text-sm text-slate-500">Source : <span class="font-semibold text-slate-700">{{ batch.source_type }}</span> &bull; Enregistré le {{ batch.created_at|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div>
+                {% if score.status == 'PASSED' %}
+                    <span class="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-100 text-emerald-800">
+                        <i class="fa-solid fa-circle-check mr-1"></i> {{ score.grade }}
+                    </span>
+                {% elif score.status == 'WARNING' %}
+                    <span class="px-4 py-2 rounded-lg text-sm font-bold bg-amber-100 text-amber-800">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> {{ score.grade }}
+                    </span>
+                {% else %}
+                    <span class="px-4 py-2 rounded-lg text-sm font-bold bg-rose-100 text-rose-800">
+                        <i class="fa-solid fa-circle-xmark mr-1"></i> {{ score.grade }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 4 Métriques de ce lot -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <span class="text-xs text-slate-400 font-semibold uppercase">Complétude</span>
+            <div class="text-2xl font-bold text-indigo-600 mt-1">{{ score.completeness_score }}%</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <span class="text-xs text-slate-400 font-semibold uppercase">Validité</span>
+            <div class="text-2xl font-bold text-emerald-600 mt-1">{{ score.validity_score }}%</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <span class="text-xs text-slate-400 font-semibold uppercase">Unicité</span>
+            <div class="text-2xl font-bold text-blue-600 mt-1">{{ score.uniqueness_score }}%</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <span class="text-xs text-slate-400 font-semibold uppercase">Cohérence</span>
+            <div class="text-2xl font-bold text-purple-600 mt-1">{{ score.consistency_score }}%</div>
+        </div>
+    </div>
+
+    <!-- Tableau détaillé de toutes les anomalies de ce lot -->
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <h3 class="text-base font-bold text-slate-800 mb-4">
+            Anomalies Spécifiques Détectées ({{ anomalies.count }})
+        </h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-100 text-xs text-slate-400 uppercase">
+                        <th class="pb-2">Ligne CSV</th>
+                        <th class="pb-2">Entité</th>
+                        <th class="pb-2">Sévérité</th>
+                        <th class="pb-2">Règle</th>
+                        <th class="pb-2">Message d'explication</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for a in anomalies %}
+                    <tr>
+                        <td class="py-3 font-mono text-xs text-slate-500">#{{ a.row_index }}</td>
+                        <td class="py-3 font-mono text-xs font-semibold text-slate-800">{{ a.entity_id }}</td>
+                        <td class="py-3">
+                            {% if a.severity == 'CRITICAL' %}
+                                <span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800">Critique</span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800">Warning</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 text-xs font-semibold text-slate-700">{{ a.rule_violated }}</td>
+                        <td class="py-3 text-xs text-slate-600">{{ a.message }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-6 text-center text-sm text-emerald-600 font-semibold">
+                            🎉 Aucune anomalie détectée dans ce lot ! Qualité parfaite.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
