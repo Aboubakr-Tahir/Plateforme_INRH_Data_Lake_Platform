@@ -28,8 +28,8 @@ services:
       MINIO_ROOT_USER: inrh_minio_admin
       MINIO_ROOT_PASSWORD: inrh_minio_password
     ports:
-      - "9000:9000"   # Port API S3 (pour Python / Pandas / boto3)
-      - "9001:9001"   # Port Console Web (Interface graphique MinIO)
+      - "9010:9000"   # Port API S3 (pour Python / Pandas / boto3)
+      - "9011:9001"   # Port Console Web (Interface graphique MinIO)
     volumes:
       - minio_data:/data
     healthcheck:
