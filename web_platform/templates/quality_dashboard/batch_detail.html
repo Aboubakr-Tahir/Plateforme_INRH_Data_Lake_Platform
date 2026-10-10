@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ batch.batch_id }} — qualité{% endblock %}
+{% block content %}
+<h1>Batch {{ batch.batch_id }}</h1>
+<p class="muted">Statut : {{ batch.status }} · {{ batch.source_count }} sources · démarré le {{ batch.started_at }}</p>
+<h2>Scores par source</h2>
+<table><tr><th>Source</th><th>Global</th><th>Complétude</th><th>Validité</th><th>Unicité</th><th>Cohérence</th><th>Anomalies</th></tr>
+{% for score in scores %}<tr><td>{{ score.source_type }}</td><td>{{ score.global_score }}% ({{ score.grade }})</td><td>{{ score.completeness_score }}%</td><td>{{ score.validity_score }}%</td><td>{{ score.uniqueness_score }}%</td><td>{{ score.consistency_score }}%</td><td>{{ score.anomaly_count }}</td></tr>{% endfor %}</table>
+<h2>Anomalies</h2>
+<form method="get"><select name="source"><option value="">Toutes les sources</option>{% for score in scores %}<option value="{{ score.source_type }}" {% if source == score.source_type %}selected{% endif %}>{{ score.source_type }}</option>{% endfor %}</select><select name="severity"><option value="">Toutes les sévérités</option><option value="CRITICAL">CRITICAL</option><option value="WARNING">WARNING</option></select><button>Filtrer</button></form>
+<table><tr><th>Source</th><th>Ligne</th><th>Entité</th><th>Sévérité</th><th>Règle</th><th>Message</th></tr>
+{% for anomaly in anomalies %}<tr><td>{{ anomaly.source_type }}</td><td>{{ anomaly.row_index }}</td><td>{{ anomaly.entity_id }}</td><td class="{{ anomaly.severity|lower }}">{{ anomaly.severity }}</td><td>{{ anomaly.rule }}</td><td>{{ anomaly.message }}</td></tr>{% empty %}<tr><td colspan="6">Aucune anomalie.</td></tr>{% endfor %}</table>
+{% endblock %}

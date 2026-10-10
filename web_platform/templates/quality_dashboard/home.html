@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Gouvernance qualité{% endblock %}
+{% block content %}
+<h1>Dashboard de qualité</h1>
+<p class="muted">Suivi des batches, scores DAMA et anomalies détectées.</p>
+<form method="post" action="{% url 'start_pipeline' %}">
+  {% csrf_token %}<button type="submit">Lancer un nouveau pipeline</button>
+</form>
+{% if request.GET.pipeline_batch %}
+<div class="card" id="pipeline-progress">
+  <strong>Pipeline en cours : {{ request.GET.pipeline_batch }}</strong>
+  <p id="pipeline-status">Initialisation...</p>
+  <div id="pipeline-scores"></div>
+</div>
+<script>
+const batchId = "{{ request.GET.pipeline_batch|escapejs }}";
+const taskId = "{{ request.GET.task_id|escapejs }}";
+const statusNode = document.getElementById("pipeline-status");
+const scoresNode = document.getElementById("pipeline-scores");
+let attempts = 0;
+const timer = setInterval(async () => {
+attempts += 1;
+const response = await fetch(`/pipeline/status/${batchId}/?task_id=${encodeURIComponent(taskId)}`);
+const data = await response.json();
+statusNode.textContent = `${data.status} — ${data.source_count}/4 sources terminées`;
+scoresNode.innerHTML = (data.scores || []).map(score =>
+  `<div>${score.source_type}: ${score.global_score}% — ${score.anomaly_count} anomalies</div>`
+).join("");
+if (data.status === "QUEUED" && attempts >= 20) {
+  statusNode.textContent = "QUEUED — aucun worker Celery ne consomme la tâche. Démarrez le worker puis actualisez la page.";
+  statusNode.className = "warning";
+}
+if (["COMPLETED", "FAILED"].includes(data.status)) {
+  clearInterval(timer);
+  if (data.status === "COMPLETED") {
+    statusNode.innerHTML += ` — <a href="/batch/${batchId}/">Voir les détails</a>`;
+  }
+}
+}, 1500);
+</script>
+{% endif %}
+<form method="get">
+  <select name="status"><option value="">Tous les statuts</option><option value="COMPLETED" {% if selected_status == "COMPLETED" %}selected{% endif %}>Terminés</option><option value="FAILED" {% if selected_status == "FAILED" %}selected{% endif %}>Échoués</option></select>
+  <button type="submit">Filtrer</button>
+</form>
+{% if latest %}
+<section class="grid">
+  <div class="card"><span class="muted">Dernier batch</span><h2><a href="{% url 'batch_detail' latest.batch_id %}">{{ latest.batch_id }}</a></h2></div>
+  <div class="card"><span class="muted">Statut</span><div class="score">{{ latest.status }}</div></div>
+  <div class="card"><span class="muted">Sources</span><div class="score">{{ latest.source_count }}</div></div>
+</section>
+<h2>Scores qualité</h2>
+<table><tr><th>Source</th><th>Score</th><th>Grade</th><th>Anomalies</th></tr>
+{% for score in scores %}<tr><td>{{ score.source_type }}</td><td>{{ score.global_score }}%</td><td>{{ score.grade }}</td><td>{{ score.anomaly_count }}</td></tr>{% empty %}<tr><td colspan="4">Aucun score.</td></tr>{% endfor %}</table>
+<h2>Dernières alertes</h2>
+<table><tr><th>Source</th><th>Sévérité</th><th>Règle</th><th>Message</th></tr>
+{% for anomaly in anomalies %}<tr><td>{{ anomaly.source_type }}</td><td class="{{ anomaly.severity|lower }}">{{ anomaly.severity }}</td><td>{{ anomaly.rule }}</td><td>{{ anomaly.message }}</td></tr>{% empty %}<tr><td colspan="4">Aucune anomalie.</td></tr>{% endfor %}</table>
+{% else %}<div class="card">Aucun batch n'est encore disponible.</div>{% endif %}
+<h2>Historique des batches</h2>
+<table><tr><th>Batch</th><th>Statut</th><th>Sources</th><th>Démarré</th></tr>
+{% for batch in batches %}<tr><td><a href="{% url 'batch_detail' batch.batch_id %}">{{ batch.batch_id }}</a></td><td>{{ batch.status }}</td><td>{{ batch.source_count }}</td><td>{{ batch.started_at }}</td></tr>{% endfor %}</table>
+{% endblock %}

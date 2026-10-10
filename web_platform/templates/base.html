@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}INRH Data Lake{% endblock %}</title>
+  <style>
+    :root { --navy:#102a43; --blue:#1f6feb; --bg:#f4f7fb; --muted:#627d98; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:#243b53; font:15px system-ui,sans-serif; }
+    header { background:var(--navy); color:white; padding:18px 6%; display:flex; justify-content:space-between; align-items:center; }
+    header a { color:white; text-decoration:none; margin-left:22px; } main { max-width:1200px; margin:30px auto; padding:0 20px; }
+    h1 { margin-top:0; } .muted { color:var(--muted); } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; }
+    .card { background:white; border-radius:10px; padding:18px; box-shadow:0 2px 8px #102a4315; } .score { font-size:28px; font-weight:700; color:var(--blue); }
+    table { width:100%; border-collapse:collapse; background:white; margin-top:14px; } th,td { padding:11px; border-bottom:1px solid #e6edf3; text-align:left; }
+    th { color:var(--muted); font-size:12px; text-transform:uppercase; } a { color:var(--blue); } .critical { color:#c92a2a; font-weight:700; } .warning { color:#b7791f; font-weight:700; }
+    form { display:flex; gap:10px; margin:15px 0; } select,button { padding:8px; border:1px solid #bcccdc; border-radius:6px; background:white; } button { background:var(--blue); color:white; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <header><strong>INRH Data Lake Platform</strong><nav><a href="/">Qualité</a><a href="/business/">Métier</a></nav></header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

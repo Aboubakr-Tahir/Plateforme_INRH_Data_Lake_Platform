@@ -138,3 +138,65 @@ def write_to_silver(
         content_type="application/vnd.apache.parquet",
     )
     return normalized_name
+
+
+def read_from_silver(
+    object_name: str,
+    client: Optional[Minio] = None,
+) -> pd.DataFrame:
+    """Lit un fichier Parquet depuis Silver."""
+    if not object_name or not object_name.lower().endswith(".parquet"):
+        raise ValueError("object_name doit désigner un fichier Parquet dans Silver.")
+
+    minio_client = client or get_client()
+    response = minio_client.get_object(SILVER_BUCKET, object_name.lstrip("/"))
+    try:
+        return pd.read_parquet(io.BytesIO(response.read()))
+    finally:
+        response.close()
+        response.release_conn()
+
+
+def write_to_gold(
+    dataframe: pd.DataFrame,
+    object_name: str,
+    client: Optional[Minio] = None,
+) -> str:
+    """Écrit un DataFrame d'indicateurs au format Parquet dans Gold."""
+    if dataframe is None:
+        raise ValueError("dataframe ne peut pas être None.")
+    if not object_name or not object_name.lower().endswith(".parquet"):
+        raise ValueError("object_name doit se terminer par '.parquet'.")
+
+    minio_client = client or get_client()
+    ensure_buckets(minio_client)
+    normalized_name = object_name.lstrip("/")
+
+    buffer = io.BytesIO()
+    dataframe.to_parquet(buffer, index=False)
+    buffer.seek(0)
+    minio_client.put_object(
+        GOLD_BUCKET,
+        normalized_name,
+        buffer,
+        length=buffer.getbuffer().nbytes,
+        content_type="application/vnd.apache.parquet",
+    )
+    return normalized_name
+
+
+def read_from_gold(
+    object_name: str,
+    client: Optional[Minio] = None,
+) -> pd.DataFrame:
+    """Lit un fichier Parquet depuis Gold."""
+    if not object_name or not object_name.lower().endswith(".parquet"):
+        raise ValueError("object_name doit désigner un fichier Parquet dans Gold.")
+
+    minio_client = client or get_client()
+    response = minio_client.get_object(GOLD_BUCKET, object_name.lstrip("/"))
+    try:
+        return pd.read_parquet(io.BytesIO(response.read()))
+    finally:
+        response.close()
+        response.release_conn()

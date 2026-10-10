@@ -8,11 +8,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psycopg2
+import pandas as pd
 from dotenv import load_dotenv
+from generator.generate_all import main as generate_mock_data
 
+from data_pipeline.celery_app import app
 from data_pipeline.minio_client import (
     get_client,
     read_from_bronze,
+    upload_to_bronze,
+    write_to_gold,
     write_to_silver,
 )
 from quality_engine.anomaly_detector import hybrid_anomaly_scan
@@ -28,6 +33,12 @@ SOURCE_OBJECTS = {
     "SALES": "sales/sales_batch_01.csv",
     "LOGBOOK": "logbook/logbook_batch_01.csv",
     "ENV": "env/env_batch_01.csv",
+}
+SOURCE_FILES = {
+    "VMS": "vms_batch_01.csv",
+    "SALES": "sales_batch_01.csv",
+    "LOGBOOK": "logbook_batch_01.csv",
+    "ENV": "env_batch_01.csv",
 }
 
 MANDATORY_COLUMNS = {
@@ -139,6 +150,91 @@ def _dimension_scores(dataframe, source: str, consistency_score: float) -> dict[
     }
 
 
+def build_gold_aggregates(
+    dataframes: dict[str, Any],
+    batch_id: str,
+    client,
+    quality_sources: dict[str, Any],
+) -> dict[str, str]:
+    """Construit les indicateurs métier et les écrit dans Gold."""
+    sales = dataframes["SALES"].copy()
+    logbook = dataframes["LOGBOOK"].copy()
+    env = dataframes["ENV"].copy()
+
+    sales["sale_date"] = sales["sale_date"].astype(str)
+    sales["month"] = sales["sale_date"].str[:7]
+    sales_by_port_species = (
+        sales.groupby(["month", "port_id", "species_code"], as_index=False)
+        .agg(
+            total_sold_kg=("quantity_kg", "sum"),
+            total_sales_mad=("total_price", "sum"),
+            average_price_mad=("total_price", "mean"),
+            sales_count=("sale_id", "count"),
+        )
+    )
+
+    logbook["log_date"] = logbook["log_date"].astype(str)
+    logbook["month"] = logbook["log_date"].str[:7]
+    catches_by_species = (
+        logbook.groupby(["month", "species_code"], as_index=False)
+        .agg(
+            total_catch_kg=("weight_kg", "sum"),
+            trips_count=("trip_id", "nunique"),
+        )
+    )
+
+    env["timestamp"] = pd.to_datetime(env["timestamp"], errors="coerce")
+    env["month"] = env["timestamp"].dt.strftime("%Y-%m")
+    environment_by_sensor = (
+        env.groupby(["month", "sensor_id"], as_index=False)
+        .agg(
+            average_temperature=("sea_surface_temp", "mean"),
+            average_salinity=("salinity", "mean"),
+            average_chlorophyll=("chlorophyll_a", "mean"),
+            measurements_count=("env_id", "count"),
+        )
+    )
+    quality_kpis = pd.DataFrame(
+        [
+            {
+                "batch_id": batch_id,
+                "source_type": source,
+                "global_score": details["score"]["global_score"],
+                "grade": details["score"]["grade"],
+                "status": details["score"]["status"],
+                "anomaly_count": details["anomaly_count"],
+                "critical_anomaly_count": details["critical_anomaly_count"],
+                "warning_anomaly_count": details["warning_anomaly_count"],
+            }
+            for source, details in quality_sources.items()
+        ]
+    )
+
+    prefix = f"{batch_id}/"
+    return {
+        "sales_by_port_species": write_to_gold(
+            sales_by_port_species,
+            prefix + "sales_by_port_species.parquet",
+            client,
+        ),
+        "catches_by_species": write_to_gold(
+            catches_by_species,
+            prefix + "catches_by_species.parquet",
+            client,
+        ),
+        "environment_by_sensor": write_to_gold(
+            environment_by_sensor,
+            prefix + "environment_by_sensor.parquet",
+            client,
+        ),
+        "quality_kpis": write_to_gold(
+            quality_kpis,
+            prefix + "quality_kpis.parquet",
+            client,
+        ),
+    }
+
+
 def run_quality_pipeline(batch_id: str) -> dict[str, Any]:
     """Traite les quatre sources d'un batch et persiste ses résultats."""
     if not batch_id or not batch_id.strip():
@@ -155,7 +251,7 @@ def run_quality_pipeline(batch_id: str) -> dict[str, Any]:
             cursor.execute(
                 """
                 INSERT INTO batch_metadata (batch_id, started_at, status, source_count)
-                VALUES (%s, %s, 'RUNNING', 0)
+                VALUES (%s, %s, 'GENERATING', 0)
                 ON CONFLICT (batch_id) DO UPDATE
                 SET started_at = EXCLUDED.started_at,
                     completed_at = NULL,
@@ -164,10 +260,33 @@ def run_quality_pipeline(batch_id: str) -> dict[str, Any]:
                 """,
                 (batch_id, started_at),
             )
+        connection.commit()
 
+        generate_mock_data()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE batch_metadata SET status = 'INGESTING' WHERE batch_id = %s",
+                (batch_id,),
+            )
+        connection.commit()
+        data_directory = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "generator", "mock_data"
+        )
+        batch_source_objects = {}
+        for source, filename in SOURCE_FILES.items():
+            object_name = f"{source.lower()}/{batch_id}/{filename}"
+            upload_to_bronze(os.path.join(data_directory, filename), object_name, client)
+            batch_source_objects[source] = object_name
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE batch_metadata SET status = 'PROCESSING' WHERE batch_id = %s",
+                (batch_id,),
+            )
+        connection.commit()
         dataframes = {
             source: read_from_bronze(object_name, client)
-            for source, object_name in SOURCE_OBJECTS.items()
+            for source, object_name in batch_source_objects.items()
         }
         consistency = evaluate_cross_source_consistency(
             dataframes["LOGBOOK"], dataframes["SALES"]
@@ -245,9 +364,18 @@ def run_quality_pipeline(batch_id: str) -> dict[str, Any]:
                     "rows": len(dataframe),
                     "score": score,
                     "anomaly_count": len(anomalies),
+                    "critical_anomaly_count": sum(
+                        anomaly["severity"] == "CRITICAL" for anomaly in anomalies
+                    ),
+                    "warning_anomaly_count": sum(
+                        anomaly["severity"] == "WARNING" for anomaly in anomalies
+                    ),
                     "silver_object": silver_object,
                 }
 
+            results["gold_objects"] = build_gold_aggregates(
+                dataframes, batch_id, client, results["sources"]
+            )
             cursor.execute(
                 """
                 UPDATE batch_metadata
@@ -269,3 +397,15 @@ def run_quality_pipeline(batch_id: str) -> dict[str, Any]:
         raise
     finally:
         connection.close()
+
+
+@app.task(
+    bind=True,
+    name="data_pipeline.run_quality_pipeline",
+    autoretry_for=(ConnectionError, TimeoutError),
+    retry_backoff=True,
+    max_retries=3,
+)
+def run_quality_pipeline_task(self, batch_id: str) -> dict[str, Any]:
+    """Exécute le pipeline qualité dans un worker Celery."""
+    return run_quality_pipeline(batch_id)

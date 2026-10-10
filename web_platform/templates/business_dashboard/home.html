@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Dashboard métier{% endblock %}
+{% block content %}
+<h1>Dashboard métier INRH</h1>
+<p class="muted">Indicateurs Gold du batch {{ batch_id }}.</p>
+<h2>KPIs qualité</h2><div class="grid">{% for item in quality %}<div class="card"><b>{{ item.source_type }}</b><div class="score">{{ item.global_score }}%</div><span>{{ item.grade }} · {{ item.anomaly_count }} anomalies</span></div>{% empty %}<div class="card">Aucun KPI Gold disponible.</div>{% endfor %}</div>
+<h2>Captures par espèce</h2><table><tr><th>Mois</th><th>Espèce</th><th>Capture (kg)</th><th>Marées</th></tr>{% for row in catches %}<tr><td>{{ row.month }}</td><td>{{ row.species_code }}</td><td>{{ row.total_catch_kg|floatformat:2 }}</td><td>{{ row.trips_count }}</td></tr>{% empty %}<tr><td colspan="4">Aucune donnée.</td></tr>{% endfor %}</table>
+<h2>Ventes par port et espèce</h2><table><tr><th>Mois</th><th>Port</th><th>Espèce</th><th>Vendu (kg)</th><th>CA (MAD)</th></tr>{% for row in sales %}<tr><td>{{ row.month }}</td><td>{{ row.port_id }}</td><td>{{ row.species_code }}</td><td>{{ row.total_sold_kg|floatformat:2 }}</td><td>{{ row.total_sales_mad|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5">Aucune donnée.</td></tr>{% endfor %}</table>
+<h2>Environnement</h2><table><tr><th>Mois</th><th>Station</th><th>Température moyenne</th><th>Mesures</th></tr>{% for row in environment %}<tr><td>{{ row.month }}</td><td>{{ row.sensor_id }}</td><td>{{ row.average_temperature|floatformat:2 }} °C</td><td>{{ row.measurements_count }}</td></tr>{% empty %}<tr><td colspan="4">Aucune donnée.</td></tr>{% endfor %}</table>
+{% endblock %}
